@@ -325,15 +325,27 @@
     });
   }
 
+  // A quadra guardada no celular pode estar velha (link da pasta, logo ou cidade mudaram na planilha):
+  // confere com a lista da planilha, que é lida uma vez por abertura da tela, e guarda a versão nova.
+  function quadraAtualizada(q) {
+    return new Promise(pronto => carregarQuadras(() => {
+      const nova = (quadras || []).find(x => x.nome === q.nome && (x.local || x.nome) === (q.local || q.nome));
+      if (nova && JSON.stringify(nova) !== JSON.stringify(q)) { App.salvarQuadra(JSON.stringify(nova)); pronto(nova); }
+      else pronto(q);
+    }));
+  }
+
   // Sem quadra escolhida: locais. Com quadra: o dia e os horários; #dias escolhe outro dia; &hora= mostra os vídeos.
   function mostrarTela() {
     const h = new URLSearchParams(location.hash.slice(1));
-    const q = quadraSalva();
-    if (h.get('local')) mostrarQuadrasDoLocal(h.get('local'));
-    else if (location.hash === '#quadras' || !q) mostrarLocais();
-    else if (location.hash === '#dias') mostrarListaDias(q);
-    else if (h.get('dia') && h.get('hora') !== null) mostrarVideos(q, h.get('dia'), h.get('nome') || '', Number(h.get('hora')));
-    else mostrarHorarios(q, h.get('dia'));
+    const salva = quadraSalva();
+    if (h.get('local')) { mostrarQuadrasDoLocal(h.get('local')); return; }
+    if (location.hash === '#quadras' || !salva) { mostrarLocais(); return; }
+    quadraAtualizada(salva).then(q => {
+      if (location.hash === '#dias') mostrarListaDias(q);
+      else if (h.get('dia') && h.get('hora') !== null) mostrarVideos(q, h.get('dia'), h.get('nome') || '', Number(h.get('hora')));
+      else mostrarHorarios(q, h.get('dia'));
+    });
   }
 
   window.addEventListener('hashchange', () => {
