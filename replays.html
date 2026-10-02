@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Replays</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#fff5f5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ReplayPro">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: #fff5f5; color: #000; font-family: -apple-system, sans-serif; padding: calc(14px + env(safe-area-inset-top)) 16px calc(30px + env(safe-area-inset-bottom)); }
+  .topo { display: flex; align-items: center; justify-content: space-between; max-width: 520px; margin: 12px auto 26px; }
+  .topo img { height: 48px; }
+  .topo .vazio { width: 42px; }
+  .icone { background: #fff; border: 2px solid #000; border-radius: 10px; width: 42px; height: 42px;
+           display: flex; align-items: center; justify-content: center; }
+  .icone svg { width: 20px; height: 20px; }
+  .card { max-width: 520px; margin: 0 auto 14px; background: #ffefef; border: 3px solid #000; border-radius: 16px; padding: 12px; }
+  .titulo { font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  video { width: 100%; border-radius: 10px; background: #000; aspect-ratio: 16 / 9; display: block; margin-top: 8px; }
+  .acoes { display: flex; gap: 8px; margin-top: 10px; }
+  .btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 6px;
+         border-radius: 12px; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; }
+  .btn:active, .item:active, .trocar:active { transform: scale(0.97); }
+  .btn svg { width: 17px; height: 17px; }
+  .vermelho { background: #dc2626; color: #fff; border: 2px solid #fff; }
+  .branco { background: #fff; color: #dc2626; border: 2px solid #dc2626; }
+  .busca { display: block; width: 100%; max-width: 520px; margin: 0 auto 12px; padding: 13px 12px; border: 2px solid #000;
+           border-radius: 12px; font-size: 1rem; background: #fff; }
+  .rotulo { max-width: 520px; margin: 18px auto 8px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .msg { text-align: center; font-size: 0.95rem; color: #555; padding: 30px 10px; }
+
+  /* Itens de lista: quadras e dias */
+  .item { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 520px; margin: 0 auto 10px; padding: 14px;
+          background: #ffefef; border: 3px solid #000; border-radius: 16px; text-align: left; color: #000; font: inherit; }
+  .item > svg { width: 22px; height: 22px; flex: none; }
+  .item .texto { flex: 1; min-width: 0; font-size: 1.05rem; font-weight: 700; }
+  .item .linha2 { display: block; font-size: 0.8rem; font-weight: 400; color: #555; }
+  .item .seta { color: #dc2626; }
+
+  /* Logo da quadra (imagem da planilha ou ícone padrão) */
+  .logo-quadra { width: 52px; height: 52px; flex: none; border-radius: 50%; border: 2px solid #000; background: #fff;
+                 display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .logo-quadra img { width: 100%; height: 100%; object-fit: cover; }
+  .logo-quadra svg { width: 26px; height: 26px; color: #dc2626; }
+
+  /* Cabeçalho da quadra escolhida */
+  .quadra { display: flex; align-items: center; gap: 14px; max-width: 520px; margin: 0 auto 10px; padding: 16px 14px;
+            background: #fff; border: 3px solid #000; border-radius: 16px; }
+  .quadra .logo-quadra { width: 84px; height: 84px; }
+  .quadra .logo-quadra svg { width: 38px; height: 38px; }
+  .quadra .texto { flex: 1; min-width: 0; font-size: 1.35rem; font-weight: 700; line-height: 1.2; }
+  .quadra .linha2 { display: block; font-size: 0.9rem; font-weight: 400; color: #555; margin-top: 2px; }
+  .quadra .trocar { padding: 11px 12px; font-size: 0.8rem; }
+  /* Dia que está sendo mostrado: toque para escolher outro */
+  .dia-atual { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 520px; margin: 0 auto 4px; padding: 14px;
+               background: #dc2626; color: #fff; border: 3px solid #000; border-radius: 16px; text-align: left; font: inherit; }
+  .dia-atual:active { transform: scale(0.98); }
+  .dia-atual svg { width: 24px; height: 24px; flex: none; }
+  .dia-atual .texto { flex: 1; min-width: 0; font-size: 1.15rem; font-weight: 700; }
+  .dia-atual .linha2 { display: block; font-size: 0.82rem; font-weight: 400; opacity: 0.9; }
+  .dia-atual .mudar { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; white-space: nowrap; border: 2px solid #fff; border-radius: 10px; padding: 6px 8px; }
+  .trocar { flex: none; padding: 9px 10px; border-radius: 10px; background: #fff; color: #dc2626; border: 2px solid #dc2626;
+            font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="topo">
+    <button class="icone" onclick="voltar()" aria-label="Voltar">
+      <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <img src="logo.png" alt="ReplayPro">
+    <span class="vazio"></span>
+  </div>
+
+  <div id="tela"></div>
+
+<script src="app-web.js"></script>
+<script>
+  const CHAVE = App.chaveApi();
+  let quadras = null;   // lista da planilha (carregada uma vez por abertura)
+
+  const ICONE_QUADRA = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
+  const ICONE_DIA = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+  const SETA = '<svg class="seta" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+  // Textos da planilha entram na página sempre escapados
+  function esc(t) { return String(t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function semAcento(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+  function logoQuadra(q) {
+    if (!q.logo) return `<span class="logo-quadra">${ICONE_QUADRA}</span>`;
+    const src = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(q.logo)}?alt=media&key=${encodeURIComponent(CHAVE)}`;
+    return `<span class="logo-quadra"><img src="${src}" alt="" onerror="this.parentNode.innerHTML=ICONE_QUADRA"></span>`;
+  }
+
+  function quadraSalva() { try { return JSON.parse(App.lerQuadra() || 'null'); } catch (e) { return null; } }
+
+  // Estrutura do pfiles.py: subpastas "📅 2026-09-28" com arquivos "22:17:59.mp4"
+  function dataPasta(nome) {
+    const m = nome.match(/(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : nome.replace(/^[^\w]+/, '');
+  }
+  function horaArquivo(nome) {
+    const m = nome.match(/(\d{2})[:\-_](\d{2})(?:[:\-_](\d{2}))?/);
+    return m ? `${m[1]}:${m[2]}` : nome.replace(/\.[^.]+$/, '');
+  }
+  // "Hoje", "Ontem" ou o dia da semana
+  function quandoPasta(nome) {
+    const m = nome.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return '';
+    const d = new Date(+m[1], +m[2] - 1, +m[3]);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const dif = Math.round((hoje - d) / 86400000);
+    if (dif === 0) return 'Hoje';
+    if (dif === 1) return 'Ontem';
+    const s = d.toLocaleDateString('pt-BR', { weekday: 'long' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // App Android responde na hora; a versão web responde depois (Promise). O await serve para os dois.
+  async function consultar(chamada) {
+    try { return JSON.parse(await chamada()); } catch (e) { return { erro: 'Resposta inválida.' }; }
+  }
+
+  function mostrarErro(dados, dica) {
+    const msg = dados.erro || (dados.error && dados.error.message) || 'Erro desconhecido';
+    document.getElementById('tela').innerHTML = `<div class="msg">Não foi possível carregar.<br><small>${esc(msg)}</small><br><br>${dica}</div>`;
+  }
+  // Mostra "Carregando..." e só depois faz a consulta (senão a mensagem não aparece)
+  function carregando(html, depois) {
+    document.getElementById('tela').innerHTML = html;
+    window.scrollTo(0, 0);
+    setTimeout(depois, 50);
+  }
+
+  // Navegação pelo endereço (#quadras, #local=..., #dia=...): o voltar do celular funciona sozinho.
+  // "pilha" guarda os endereços que esta tela abriu, para voltar direto aos dias depois de escolher a quadra.
+  let pilha = [];
+  function ir(h) { pilha.push(h); location.hash = h; }
+  function voltar() { if (location.hash) history.back(); else App.voltarInicio(); }
+  function trocarQuadra() { ir('quadras'); }
+
+  function escolherQuadra(i) {
+    App.salvarQuadra(JSON.stringify(quadras[i]));
+    const passos = pilha.length;
+    if (!passos) { mostrarTela(); return; }
+    history.go(-passos);
+    // garantia: se o navegador juntou passos do histórico e não voltou, vai direto para os dias
+    setTimeout(() => { if (location.hash) { pilha = []; location.replace('#'); } }, 400);
+  }
+
+  // Locais (clube, arena) com as quadras de cada um, na ordem da planilha
+  function locais() {
+    const lista = [];
+    quadras.forEach((q, i) => {
+      let l = lista.find(x => x.nome === q.local);
+      if (!l) { l = { nome: q.local, cidade: q.cidade, logo: '', itens: [] }; lista.push(l); }
+      if (!l.logo && q.logo) l.logo = q.logo;
+      l.itens.push(i);
+    });
+    return lista;
+  }
+
+  function carregarQuadras(depois) {
+    if (quadras) { depois({}); return; }
+    carregando('<div class="msg">Carregando quadras...</div>', async () => {
+      const dados = await consultar(() => App.listarQuadras());
+      if (dados.erro) { mostrarErro(dados, 'Confira a internet e tente de novo.'); return; }
+      quadras = dados.quadras || [];
+      depois(dados);
+    });
+  }
+
+  // --- Tela: lista de locais (da planilha) ---
+  function mostrarLocais() {
+    carregarQuadras(dados => {
+      if (!quadras.length) { document.getElementById('tela').innerHTML = '<div class="msg">Nenhuma quadra cadastrada ainda.</div>'; return; }
+      document.getElementById('tela').innerHTML =
+        (dados.offline ? '<div class="msg" style="padding:6px">Sem internet: mostrando a última lista.</div>' : '') +
+        `<input class="busca" id="busca" type="search" placeholder="Buscar local, quadra ou cidade" oninput="filtrarLocais()">
+         <div class="rotulo">Onde você jogou?</div><div id="lista-locais"></div>`;
+      window.scrollTo(0, 0);
+      filtrarLocais();
+    });
+  }
+
+  function filtrarLocais() {
+    const termo = semAcento(document.getElementById('busca').value.trim());
+    const lista = locais().filter(l => !termo || semAcento(l.nome + ' ' + l.cidade + ' ' + l.itens.map(i => quadras[i].nome).join(' ')).includes(termo));
+    document.getElementById('lista-locais').innerHTML = lista.length ? lista.map(l => {
+      const qtd = l.itens.length;
+      const acao = qtd === 1 ? `escolherQuadra(${l.itens[0]})` : `ir('local=' + ${esc(JSON.stringify(encodeURIComponent(l.nome)))})`;
+      const linha2 = [l.cidade, qtd > 1 ? `${qtd} quadras` : (quadras[l.itens[0]].nome !== l.nome ? quadras[l.itens[0]].nome : '')].filter(Boolean).join(' · ');
+      return `<button class="item" onclick="${acao}">
+        ${logoQuadra(l)}
+        <span class="texto">${esc(l.nome)}<span class="linha2">${esc(linha2)}</span></span>${SETA}
+      </button>`;
+    }).join('') : '<div class="msg">Nenhum local encontrado.</div>';
+  }
+
+  // --- Tela: quadras de um local com várias câmeras ---
+  function mostrarQuadrasDoLocal(nomeLocal) {
+    carregarQuadras(() => {
+      const l = locais().find(x => x.nome === nomeLocal);
+      if (!l) { mostrarLocais(); return; }
+      document.getElementById('tela').innerHTML = `<div class="quadra">${logoQuadra(l)}
+          <span class="texto">${esc(l.nome)}<span class="linha2">${esc(l.cidade)}</span></span></div>
+        <div class="rotulo">Qual quadra?</div>` + l.itens.map(i => `
+        <button class="item" onclick="escolherQuadra(${i})">
+          <span class="logo-quadra">${ICONE_QUADRA}</span>
+          <span class="texto">${esc(quadras[i].nome)}</span>${SETA}
+        </button>`).join('');
+      window.scrollTo(0, 0);
+    });
+  }
+
+  function cabecalhoQuadra(q) {
+    const local = q.local || q.nome;
+    const linha2 = [local !== q.nome ? q.nome : '', q.cidade].filter(Boolean).join(' · ');
+    return `<div class="quadra">${logoQuadra(q)}
+      <span class="texto">${esc(local)}<span class="linha2">${esc(linha2)}</span></span>
+      <button class="trocar" onclick="trocarQuadra()">Trocar</button></div>`;
+  }
+
+  const ICONE_HORA = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+
+  // Consultas à nuvem guardadas por 1 minuto: ir e voltar entre as telas não espera a internet de novo
+  const cache = {};
+  async function consultarGuardado(chave, chamada) {
+    const c = cache[chave];
+    if (c && Date.now() - c.quando < 60000) return c.dados;
+    const dados = await consultar(chamada);
+    if (!dados.erro && !dados.error) cache[chave] = { quando: Date.now(), dados };
+    return dados;
+  }
+  const diasDaQuadra = q => consultarGuardado('dias:' + q.pasta, () => App.listarDias(q.pasta));
+  const videosDoDia = id => consultarGuardado('videos:' + id, () => App.listarVideos(id));
+
+  // Hora do replay pelo nome do arquivo ("20:15:03.mp4") e a faixa de uma hora ("20:00 – 21:00")
+  function horaDoArquivo(nome) { const m = nome.match(/(\d{2})[:\-_]\d{2}/); return m ? +m[1] : -1; }
+  function faixa(h) { const dois = n => String(n).padStart(2, '0'); return `${dois(h)}:00 – ${dois((h + 1) % 24)}:00`; }
+
+  function linkDia(d) { return 'dia=' + encodeURIComponent(d.id) + '&nome=' + encodeURIComponent(d.name); }
+
+  function seletorDia(d) {
+    return `<button class="dia-atual" onclick="ir('dias')">${ICONE_DIA}
+      <span class="texto">${dataPasta(d.name)}<span class="linha2">${quandoPasta(d.name)}</span></span>
+      <span class="mudar">Outro dia</span></button>`;
+  }
+
+  // --- Tela principal da quadra: o dia mais recente (ou o escolhido) e os horários que tiveram replay ---
+  function mostrarHorarios(q, diaId) {
+    carregando(cabecalhoQuadra(q) + '<div class="msg">Carregando replays...</div>', async () => {
+      const dd = await diasDaQuadra(q);
+      if (dd.erro || dd.error) { mostrarErro(dd, 'Confira a internet e tente de novo.'); return; }
+      const dias = dd.dias || [];
+      if (!dias.length) { document.getElementById('tela').innerHTML = cabecalhoQuadra(q) + '<div class="msg">Nenhum replay nesta quadra ainda.</div>'; return; }
+      const dia = dias.find(d => d.id === diaId) || dias[0];
+      const dv = await videosDoDia(dia.id);
+      if (dv.erro || dv.error) { mostrarErro(dv, 'Confira a internet e tente de novo.'); return; }
+      const porHora = {};
+      (dv.arquivos || []).forEach(f => { const h = horaDoArquivo(f.name); porHora[h] = (porHora[h] || 0) + 1; });
+      const horas = Object.keys(porHora).map(Number).sort((a, b) => b - a);   // mais recente primeiro
+      document.getElementById('tela').innerHTML = cabecalhoQuadra(q) + seletorDia(dia) + (!horas.length
+        ? '<div class="msg">Nenhum replay neste dia.</div>'
+        : '<div class="rotulo">Escolha o horário</div>' + horas.map(h => `
+          <button class="item" onclick='ir(${esc(JSON.stringify(linkDia(dia) + '&hora=' + h))})'>
+            ${ICONE_HORA}<span class="texto">${h < 0 ? 'Outros' : faixa(h)}<span class="linha2">${porHora[h]} replay${porHora[h] === 1 ? '' : 's'}</span></span>${SETA}
+          </button>`).join(''));
+    });
+  }
+
+  // --- Tela: escolher outro dia ---
+  function mostrarListaDias(q) {
+    carregando(cabecalhoQuadra(q) + '<div class="msg">Carregando dias...</div>', async () => {
+      const dd = await diasDaQuadra(q);
+      if (dd.erro || dd.error) { mostrarErro(dd, 'Confira a internet e tente de novo.'); return; }
+      const dias = dd.dias || [];
+      document.getElementById('tela').innerHTML = cabecalhoQuadra(q) + (!dias.length
+        ? '<div class="msg">Nenhum replay nesta quadra ainda.</div>'
+        : '<div class="rotulo">Escolha o dia</div>' + dias.map(d => `
+          <button class="item" onclick='escolherDia(${esc(JSON.stringify(linkDia(d)))})'>
+            ${ICONE_DIA}<span class="texto">${dataPasta(d.name)}<span class="linha2">${quandoPasta(d.name)}</span></span>${SETA}
+          </button>`).join(''));
+    });
+  }
+
+  // O dia escolhido toma o lugar da lista de dias: o voltar leva direto para a tela da quadra
+  function escolherDia(h) {
+    if (pilha.length) pilha[pilha.length - 1] = h;
+    location.replace('#' + h);
+  }
+
+  // --- Tela: replays de um horário ---
+  function mostrarVideos(q, id, nome, hora) {
+    const titulo = `${dataPasta(nome)} · ${hora < 0 ? 'Outros' : faixa(hora)}`;
+    carregando(cabecalhoQuadra(q) + `<div class="rotulo">${titulo}</div><div class="msg">Carregando replays...</div>`, async () => {
+      const dados = await videosDoDia(id);
+      if (dados.erro || dados.error) { mostrarErro(dados, 'Confira a internet e tente de novo.'); return; }
+      const arquivos = (dados.arquivos || []).filter(f => horaDoArquivo(f.name) === hora);
+      const topo = cabecalhoQuadra(q) + `<div class="rotulo">${titulo} · ${arquivos.length} replay${arquivos.length === 1 ? '' : 's'}</div>`;
+      document.getElementById('tela').innerHTML = topo + (!arquivos.length ? '<div class="msg">Nenhum replay neste horário.</div>' : arquivos.map(f => {
+        const src = `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&key=${encodeURIComponent(CHAVE)}`;
+        const poster = f.thumbnailLink ? `poster="${esc(f.thumbnailLink)}"` : '';
+        const tituloVideo = `${dataPasta(nome)} às ${horaArquivo(f.name)}`;
+        const nomeArquivo = `replay_${(nome.match(/\d{4}-\d{2}-\d{2}/) || ['replay'])[0]}_${f.name.replace(/:/g, '-')}`;
+        return `<div class="card">
+          <div class="titulo">${esc(tituloVideo)}</div>
+          <video controls preload="none" playsinline ${poster} src="${src}"></video>
+          <div class="acoes">
+            <button class="btn vermelho" onclick='App.baixar(${esc(JSON.stringify(src))}, ${esc(JSON.stringify(nomeArquivo))})'>
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar</button>
+            <button class="btn branco" onclick='App.compartilhar(${esc(JSON.stringify("https://drive.google.com/file/d/" + f.id + "/view"))}, ${esc(JSON.stringify("Replay " + q.nome + " " + tituloVideo))})'>
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Compartilhar</button>
+          </div></div>`;
+      }).join(''));
+    });
+  }
+
+  // Sem quadra escolhida: locais. Com quadra: o dia e os horários; #dias escolhe outro dia; &hora= mostra os vídeos.
+  function mostrarTela() {
+    const h = new URLSearchParams(location.hash.slice(1));
+    const q = quadraSalva();
+    if (h.get('local')) mostrarQuadrasDoLocal(h.get('local'));
+    else if (location.hash === '#quadras' || !q) mostrarLocais();
+    else if (location.hash === '#dias') mostrarListaDias(q);
+    else if (h.get('dia') && h.get('hora') !== null) mostrarVideos(q, h.get('dia'), h.get('nome') || '', Number(h.get('hora')));
+    else mostrarHorarios(q, h.get('dia'));
+  }
+
+  window.addEventListener('hashchange', () => {
+    // voltou pelo botão do celular ou da tela: tira da pilha o que ficou para trás
+    const h = location.hash.slice(1);
+    while (pilha.length && pilha[pilha.length - 1] !== h) pilha.pop();
+    mostrarTela();
+  });
+  mostrarTela();
+</script>
+</body>
+</html>
