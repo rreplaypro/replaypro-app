@@ -68,6 +68,19 @@
   .dia-atual .mudar { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; white-space: nowrap; border: 2px solid #fff; border-radius: 10px; padding: 6px 8px; }
   .trocar { flex: none; padding: 9px 10px; border-radius: 10px; background: #fff; color: #dc2626; border: 2px solid #dc2626;
             font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+  /* Recorte Stories / Quadrado (feito no celular) */
+  .acoes.recorte .btn { padding: 10px 6px; font-size: 0.8rem; }
+  .preto { background: #000; color: #fff; border: 2px solid #000; }
+  .progresso { height: 10px; background: #fff; border: 2px solid #000; border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  .progresso div { height: 100%; width: 0; background: #dc2626; transition: width 0.2s; }
+  .etapa { font-size: 0.95rem; font-weight: 700; margin-top: 4px; }
+  .etapa-dica { font-size: 0.82rem; color: #555; margin-top: 6px; }
+  .previa-recorte { display: block; margin: 12px auto 0; max-width: 100%; max-height: 58vh; border-radius: 10px; background: #000; }
+  video.final { aspect-ratio: auto; max-height: 62vh; width: auto; max-width: 100%; margin: 10px auto 0; }
+  .btn.grande { padding: 16px 6px; font-size: 1.05rem; }
+  .linha-tempo { position: relative; height: 14px; margin-top: 10px; background: #fff; border: 2px solid #000; border-radius: 7px; overflow: hidden; }
+  .linha-tempo .trecho { position: absolute; top: 0; bottom: 0; background: #dc2626; opacity: 0.85; }
+  .linha-tempo .cursor { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: #000; left: 0; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -82,6 +95,7 @@
 
   <div id="tela"></div>
 
+<script src="recorte.js"></script>
 <script src="app-web.js"></script>
 <script>
   const CHAVE = App.chaveApi();
@@ -320,9 +334,168 @@
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar</button>
             <button class="btn branco" onclick='App.compartilhar(${esc(JSON.stringify("https://drive.google.com/file/d/" + f.id + "/view"))}, ${esc(JSON.stringify("Replay " + q.nome + " " + tituloVideo))})'>
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Compartilhar</button>
+          </div>
+          <div class="acoes recorte">
+            <button class="btn preto" onclick='pedirRecorte(${esc(JSON.stringify(f.id))}, "stories", ${esc(JSON.stringify(tituloVideo))}, ${esc(JSON.stringify(nomeArquivo))})'>
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/></svg>Stories</button>
+            <button class="btn preto" onclick='pedirRecorte(${esc(JSON.stringify(f.id))}, "quadrado", ${esc(JSON.stringify(tituloVideo))}, ${esc(JSON.stringify(nomeArquivo))})'>
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>Quadrado</button>
           </div></div>`;
       }).join(''));
     });
+  }
+
+  // --- Tela: recorte Stories / Quadrado, feito aqui no celular (a câmera não processa nada) ---
+  let recorteAtual = null;    // AbortController do recorte em andamento
+  let recortePronto = null;   // { blob, nome }
+
+  function pedirRecorte(id, formato, titulo, nomeArquivo) {
+    Recorte.prepararAudio();   // precisa ser no toque, senão o iPhone grava sem som
+    const h = new URLSearchParams(location.hash.slice(1));
+    h.set('recorte', id); h.set('f', formato); h.set('tv', titulo); h.set('na', nomeArquivo.replace(/\.mp4$/, ''));
+    ir(h.toString());
+  }
+
+  function mostrarRecorte(q, id, formato, titulo, nomeBase) {
+    const F = Recorte.FORMATOS[formato] || Recorte.FORMATOS.stories;
+    const cfg = Recorte.esporte(q.esporte);
+    const gols = cfg.gols ? Recorte.lerGols(q.gols) : [];
+    const rede = parseFloat(String(q.rede || '').replace(',', '.'));
+    const ICONE_SALVAR = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+    const ICONE_ENVIAR = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
+    document.getElementById('tela').innerHTML = cabecalhoQuadra(q) + `<div class="rotulo">${esc(F.nome)} · ${esc(titulo)}</div>
+      <div class="card">
+        <div id="rc-etapa" class="etapa">Baixando o replay...</div>
+        <div class="progresso" id="rc-progresso"><div id="rc-barra"></div></div>
+        <div id="rc-dica" class="etapa-dica"></div>
+
+        <div id="rc-escolha" hidden>
+          <video id="rc-video" controls playsinline></video>
+          <div class="linha-tempo"><div id="rc-trecho" class="trecho" hidden></div><div id="rc-cursor" class="cursor"></div></div>
+          <div class="acoes"><button class="btn vermelho grande" onclick="marcarMomento(true)">${cfg.gols ? '⚽ Foi gol aqui!' : '⭐ O lance foi aqui!'}</button></div>
+          ${cfg.gols ? '<div class="acoes"><button class="btn branco" onclick="marcarMomento(false)">Lance sem gol: usar este trecho</button></div>' : ''}
+          <div id="rc-confirma" hidden>
+            <div id="rc-resumo" class="etapa-dica"></div>
+            <div class="acoes"><button class="btn branco" onclick="verTrecho()">▶ Ver trecho</button>
+              <button class="btn preto" onclick="iniciarRecorte()">Gerar ${esc(F.nome)}</button></div>
+          </div>
+        </div>
+
+        <canvas id="rc-tela" class="previa-recorte" hidden></canvas>
+        <video id="rc-final" class="final" controls playsinline hidden></video>
+        <div class="acoes" id="rc-acoes" hidden>
+          <button class="btn vermelho" onclick="entregarRecorte(false)">${ICONE_SALVAR}Salvar</button>
+          <button class="btn branco" onclick="entregarRecorte(true)">${ICONE_ENVIAR}Compartilhar</button>
+        </div>
+        <div class="acoes" id="rc-denovo" hidden><button class="btn branco" onclick="voltarEscolha()">Escolher outro momento</button></div>
+      </div>`;
+    const $ = i => document.getElementById(i);
+    const etapa = t => { const e = $('rc-etapa'); if (e) e.innerText = t; };
+    const dica = t => { const e = $('rc-dica'); if (e) { e.hidden = !t; e.innerText = t || ''; } };
+    const barra = f => { const b = $('rc-barra'); if (b) b.style.width = Math.round(Math.min(1, f) * 100) + '%'; };
+    const mostrar = (...ids) => ['rc-progresso', 'rc-escolha', 'rc-tela', 'rc-final', 'rc-acoes', 'rc-denovo']
+      .forEach(i => { $(i).hidden = !ids.includes(i); });
+    const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+    let blob = null, momento = null, foiGol = true;
+
+    if (recorteAtual) recorteAtual.abort();
+    const controle = recorteAtual = new AbortController();
+    recortePronto = null;
+    if (!Recorte.suportado()) { etapa('Não deu certo'); dica('Este celular não grava vídeo pelo app. Atualize o navegador ou o Android System WebView.'); mostrar(); return; }
+
+    // 1) baixa o replay uma vez só (serve para escolher o momento e para gerar)
+    Recorte.baixar(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(CHAVE)}`, barra, controle.signal)
+      .then(b => {
+        if (controle !== recorteAtual) return;
+        blob = b;
+        const v = $('rc-video');
+        v.src = URL.createObjectURL(blob);
+        v.addEventListener('loadedmetadata', () => {
+          if (v.duration <= Recorte.DURACAO + 0.5) {   // replay curto (8 s): já é o trecho todo
+            momento = null; foiGol = true; iniciarRecorte(); return;
+          }
+          etapa(cfg.gols ? 'Quando foi o gol?' : 'Quando foi o lance?');
+          dica(cfg.gols && gols.length
+            ? `Dê play e toque em "Foi gol aqui!" no momento em que a bola entra. O ${F.nome} pega ${Recorte.DURACAO} segundos em volta desse momento.`
+            : `Dê play e toque no momento do lance. O ${F.nome} pega ${Recorte.DURACAO} segundos em volta dele.`);
+          mostrar('rc-escolha');
+        }, { once: true });
+        v.addEventListener('timeupdate', () => { $('rc-cursor').style.left = (v.currentTime / v.duration * 100) + '%'; });
+      })
+      .catch(e => {
+        if (controle !== recorteAtual || (e && e.name === 'AbortError')) return;
+        etapa('Não deu certo'); dica('Não consegui baixar o replay. Confira a internet e tente de novo.'); mostrar();
+      });
+
+    // 2) o jogador marca o momento
+    window.marcarMomento = gol => {
+      const v = $('rc-video');
+      if (!v.duration) return;
+      momento = v.currentTime; foiGol = gol;
+      v.pause();
+      const [ini, fim] = Recorte.trecho(v.duration, momento);
+      const t = $('rc-trecho');
+      t.hidden = false; t.style.left = (ini / v.duration * 100) + '%'; t.style.width = ((fim - ini) / v.duration * 100) + '%';
+      $('rc-resumo').innerText = `Trecho: ${mmss(ini)} até ${mmss(fim)}` + (gol && gols.length ? ' · o quadro termina no gol' : '');
+      $('rc-confirma').hidden = false;
+    };
+    window.verTrecho = () => {
+      const v = $('rc-video');
+      if (momento == null) return;
+      const [ini, fim] = Recorte.trecho(v.duration, momento);
+      v.currentTime = ini; v.play();
+      const parar = () => { if (v.currentTime >= fim) { v.pause(); v.removeEventListener('timeupdate', parar); } };
+      v.addEventListener('timeupdate', parar);
+    };
+    window.voltarEscolha = () => {
+      if (recorteAtual) recorteAtual.abort();
+      recorteAtual = new AbortController();
+      etapa(cfg.gols ? 'Quando foi o gol?' : 'Quando foi o lance?'); dica(''); mostrar('rc-escolha');
+    };
+
+    // 3) gera o recorte do trecho
+    window.iniciarRecorte = async () => {
+      if (!blob) return;
+      if (recorteAtual) recorteAtual.abort();
+      const ctl = recorteAtual = new AbortController();
+      recortePronto = null;
+      $('rc-video').pause();
+      await Promise.race([Recorte.prepararAudio(), new Promise(ok => setTimeout(ok, 400))]);   // som (liberado no toque)
+      const tela = $('rc-tela');
+      mostrar('rc-progresso'); barra(0); dica('Deixe o app aberto até terminar.');
+      try {
+        const r = await Recorte.gerar({
+          blob, formato, gols: foiGol ? gols : [], momento, esporte: q.esporte, rede, tela, sinal: ctl.signal,
+          aoEtapa: (nome, f) => {
+            if (ctl !== recorteAtual) return;
+            etapa(nome === 'analisando' ? 'Achando a jogada...' : 'Gravando o ' + F.nome);
+            tela.hidden = nome !== 'gravando';
+            barra(nome === 'analisando' ? 0.4 * f : 0.4 + 0.6 * f);
+          }
+        });
+        if (ctl !== recorteAtual) return;
+        recortePronto = { blob: r.blob, nome: `${nomeBase}_${formato}.${r.extensao}` };
+        const v = $('rc-final');
+        v.src = URL.createObjectURL(r.blob);
+        etapa(F.nome + ' pronto'); dica(r.som ? '' : 'Saiu sem som: ' + (r.motivoSom || 'motivo desconhecido') + '.');
+        mostrar('rc-final', 'rc-acoes', 'rc-denovo');
+        if ($('rc-video').duration <= Recorte.DURACAO + 0.5) $('rc-denovo').hidden = true;
+      } catch (e) {
+        if (ctl !== recorteAtual || (e && e.name === 'AbortError')) return;
+        etapa('Não deu certo'); dica('Motivo: ' + (e && e.message ? e.message : e) + '.');
+        mostrar('rc-denovo');
+      } finally {
+        if (ctl === recorteAtual) recorteAtual = null;
+      }
+    };
+  }
+
+  async function entregarRecorte(compartilhar) {
+    if (!recortePronto) return;
+    try {
+      const msg = await Recorte.entregar(recortePronto.blob, recortePronto.nome, compartilhar);
+      if (msg) document.getElementById('rc-dica').hidden = false, document.getElementById('rc-dica').innerText = msg;
+    } catch (e) { alert('Não consegui salvar: ' + (e && e.message ? e.message : e)); }
   }
 
   // A quadra guardada no celular pode estar velha (link da pasta, logo ou cidade mudaram na planilha):
@@ -338,11 +511,13 @@
   // Sem quadra escolhida: locais. Com quadra: o dia e os horários; #dias escolhe outro dia; &hora= mostra os vídeos.
   function mostrarTela() {
     const h = new URLSearchParams(location.hash.slice(1));
+    if (recorteAtual && !h.get('recorte')) { recorteAtual.abort(); recorteAtual = null; }   // saiu da tela do recorte: cancela
     const salva = quadraSalva();
     if (h.get('local')) { mostrarQuadrasDoLocal(h.get('local')); return; }
     if (location.hash === '#quadras' || !salva) { mostrarLocais(); return; }
     quadraAtualizada(salva).then(q => {
-      if (location.hash === '#dias') mostrarListaDias(q);
+      if (h.get('recorte')) mostrarRecorte(q, h.get('recorte'), h.get('f'), h.get('tv') || '', h.get('na') || 'replay');
+      else if (location.hash === '#dias') mostrarListaDias(q);
       else if (h.get('dia') && h.get('hora') !== null) mostrarVideos(q, h.get('dia'), h.get('nome') || '', Number(h.get('hora')));
       else mostrarHorarios(q, h.get('dia'));
     });
