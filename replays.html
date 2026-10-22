@@ -529,7 +529,17 @@
     while (pilha.length && pilha[pilha.length - 1] !== h) pilha.pop();
     mostrarTela();
   });
-  mostrarTela();
+  // QR code da quadra (placa impressa pelo painel da câmera): replays.html?quadra=<ID da câmera> abre direto nessa quadra
+  // e a guarda. O ?quadra= sai do endereço em seguida, para "Trocar" e o voltar funcionarem como sempre.
+  const quadraDoLink = new URLSearchParams(location.search).get('quadra');
+  if (quadraDoLink) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    carregarQuadras(() => {
+      const q = (quadras || []).find(x => x.id === quadraDoLink || x.pasta === quadraDoLink);
+      if (q) App.salvarQuadra(JSON.stringify(q));
+      mostrarTela();
+    });
+  } else mostrarTela();
 </script>
 </body>
 </html>

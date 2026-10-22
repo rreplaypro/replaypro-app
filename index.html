@@ -35,9 +35,12 @@
   #aviso { font-size: 0.8rem; color: #555; margin-top: 6px; }
   footer { max-width: 400px; text-align: center; font-size: 0.75rem; color: #555; line-height: 1.5; margin-top: 6px; }
   footer a { color: #dc2626; font-weight: 700; }
-  .sobre { width: 100%; max-width: 400px; font-size: 0.85rem; line-height: 1.5; color: #222; margin: 6px 0 18px; }
-  .sobre h1 { font-size: 1.05rem; margin: 0 0 6px; }
-  .sobre h2 { font-size: 0.9rem; margin: 14px 0 4px; }
+  .sobre { width: 100%; max-width: 400px; font-size: 0.78rem; line-height: 1.5; color: #555; margin: 4px 0 12px; }
+  .sobre > summary { color: #777; font-weight: 600; text-align: center; list-style: none; font-size: 0.75rem; }
+  .sobre > summary::-webkit-details-marker { display: none; }
+  .sobre[open] > summary { margin-bottom: 8px; }
+  .sobre h1 { font-size: 0.9rem; margin: 0 0 6px; }
+  .sobre h2 { font-size: 0.8rem; margin: 14px 0 4px; }
   .sobre p, .sobre ul { margin: 0 0 6px; }
   .sobre ul { padding-left: 18px; }
 </style>
@@ -72,7 +75,8 @@
     </a>
   </div>
 
-  <section class="sobre" id="sobre">
+  <details class="sobre" id="sobre">
+    <summary>Sobre o ReplayPro e privacidade</summary>
     <h1>O que é o ReplayPro</h1>
     <p>O ReplayPro é um sistema de <b>replay para quadras esportivas</b> (beach tennis, futevôlei e outros esportes).
        Uma câmera fixa na quadra grava o jogo; quando o jogador aperta o botão, os últimos segundos do lance viram um vídeo de replay.
@@ -91,7 +95,7 @@
        Google Sign-In is used only by the court owner to authorize Google Drive with the <b>drive.file</b> scope, so the camera can upload replay videos to a folder created by ReplayPro (replays older than 10 days are deleted).
        ReplayPro does <b>not</b> use Google APIs or AI to generate or alter images of people, and it is not used for intimate or sexual imagery (no AI NCII).
        See our <a href="privacidade.html">Privacy Policy</a>. Contact: rreplaypro@gmail.com</p>
-  </section>
+  </details>
 
   <footer>
     ReplayPro: câmera de replay para quadras esportivas.<br>

@@ -50,14 +50,15 @@
     return /^[A-Za-z0-9_-]{15,}$/.test(link) ? link : '';
   }
 
-  // Planilha → [{nome, local, cidade, pasta, logo, gols, esporte, rede}]; as colunas são achadas pelo título da linha 1
+  // Planilha → [{id, nome, local, cidade, pasta, logo, gols, esporte, rede}]; as colunas são achadas pelo título da linha 1
   function lerPlanilha(csv) {
     const linhas = lerCsv(csv);
     if (!linhas.length) return [];
-    let cLocal = -1, cNome = -1, cCidade = -1, cPasta = -1, cLogo = -1, cGols = -1, cEsporte = -1, cRede = -1;
+    let cId = -1, cLocal = -1, cNome = -1, cCidade = -1, cPasta = -1, cLogo = -1, cGols = -1, cEsporte = -1, cRede = -1;
     linhas[0].forEach((t, i) => {
       t = semAcento(t);
-      if (t.startsWith('local')) cLocal = i;
+      if (t.startsWith('id')) cId = i;   // ID da câmera (QR code da quadra)
+      else if (t.startsWith('local')) cLocal = i;
       else if (t.startsWith('quadra') || t === 'nome') cNome = i;
       else if (t.startsWith('cidade')) cCidade = i;
       else if (t.includes('pasta')) cPasta = i;
@@ -70,7 +71,7 @@
     const cel = (l, c) => (c >= 0 && c < l.length ? l[c].trim() : '');
     return linhas.slice(1).map(l => {
       const nome = cel(l, cNome), pasta = idDaPasta(cel(l, cPasta)), local = cel(l, cLocal);
-      return { nome, local: local || nome, cidade: cel(l, cCidade), pasta, logo: idDoArquivo(cel(l, cLogo)), gols: cel(l, cGols), esporte: cel(l, cEsporte), rede: cel(l, cRede) };
+      return { id: cel(l, cId), nome, local: local || nome, cidade: cel(l, cCidade), pasta, logo: idDoArquivo(cel(l, cLogo)), gols: cel(l, cGols), esporte: cel(l, cEsporte), rede: cel(l, cRede) };
     }).filter(q => q.nome && q.pasta);
   }
 
