@@ -80,11 +80,13 @@
     try {
       const pastas = quadras.filter(q => !q.logo).map(q => q.pasta);
       const logoDaPasta = {};
-      for (let i = 0; i < pastas.length; i += 30) {
-        const q = "name = 'logo.png' and trashed = false and (" + pastas.slice(i, i + 30).map(p => `'${p}' in parents`).join(' or ') + ')';
-        const r = await drive(q, 'files(id,parents)');
-        (r.files || []).forEach(f => (f.parents || []).forEach(p => { logoDaPasta[p] = f.id; }));
-      }
+      // 28/10: uma consulta por pasta (com "or" entre 2+ pastas o Drive recusa a chave de API: insufficientFilePermissions)
+      await Promise.all(pastas.map(async p => {
+        try {
+          const r = await drive(`'${p}' in parents and name = 'logo.png' and trashed = false`, 'files(id)');
+          if (r.files && r.files.length) logoDaPasta[p] = r.files[0].id;
+        } catch (e) { }
+      }));
       quadras.forEach(q => { if (!q.logo && logoDaPasta[q.pasta]) q.logo = logoDaPasta[q.pasta]; });
     } catch (e) { }   // sem logo: a tela mostra o ícone padrão
   }
