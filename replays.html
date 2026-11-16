@@ -118,9 +118,9 @@
   function semAcento(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 
   function logoQuadra(q) {
-    const cam = idCamera(q);   // logo enviada pela câmera: logos/<id>.png no R2; sem logo, o ícone
+    const cam = idCamera(q);   // logo enviada pela câmera: quadras/<id>/logo.png no R2; sem logo, o ícone
     if (!cam) return `<span class="logo-quadra">${ICONE_QUADRA}</span>`;
-    return `<span class="logo-quadra"><img src="${linkArquivo(`logos/${cam}.png`)}" alt="" onerror="this.parentNode.innerHTML=ICONE_QUADRA"></span>`;
+    return `<span class="logo-quadra"><img src="${linkArquivo(`quadras/${cam}/logo.png`)}" alt="" onerror="this.parentNode.innerHTML=ICONE_QUADRA"></span>`;
   }
 
   function quadraSalva() { try { return JSON.parse(App.lerQuadra() || 'null'); } catch (e) { return null; } }
@@ -276,7 +276,7 @@
     if (!m) return JSON.stringify({ arquivos: [] });
     const r = await doWorker(`/videos?quadra=${m[1]}&dia=${m[2]}`);
     if (!r.arquivos) return JSON.stringify(r);
-    return JSON.stringify({ arquivos: r.arquivos.map(f => ({ id: f.chave, name: f.nome })) });
+    return JSON.stringify({ arquivos: r.arquivos.map(f => ({ id: f.chave, name: f.nome, thumbnailLink: f.capa ? linkArquivo(f.capa) : '' })) });   // capa = imagem antes do play
   });
 
   // Hora do replay pelo nome do arquivo ("20:15:03.mp4") e a faixa de uma hora ("20:00 – 21:00")
