@@ -99,6 +99,14 @@
 <script src="app-web.js"></script>
 <script>
   const CHAVE = App.chaveApi();
+  // 16/11/2026: replays SÓ no Cloudflare R2, entregues pelo Worker (o Google Drive foi abandonado: barrava o download).
+  const WORKER = 'https://replaypro.replaypro.workers.dev';
+  const linkArquivo = chave => `${WORKER}/v/${chave.split('/').map(encodeURIComponent).join('/')}`;
+  const idCamera = q => /^[a-f0-9]{16}$/.test((q && q.id) || '') ? q.id : '';
+  async function doWorker(caminho) {
+    try { const r = await fetch(WORKER + caminho, { cache: 'no-store' }); return await r.json(); }
+    catch (e) { return { erro: 'Sem conexão com a nuvem.' }; }
+  }
   let quadras = null;   // lista da planilha (carregada uma vez por abertura)
 
   const ICONE_QUADRA = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
@@ -110,9 +118,9 @@
   function semAcento(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 
   function logoQuadra(q) {
-    if (!q.logo) return `<span class="logo-quadra">${ICONE_QUADRA}</span>`;
-    const src = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(q.logo)}?alt=media&key=${encodeURIComponent(CHAVE)}`;
-    return `<span class="logo-quadra"><img src="${src}" alt="" onerror="this.parentNode.innerHTML=ICONE_QUADRA"></span>`;
+    const cam = idCamera(q);   // logo enviada pela câmera: logos/<id>.png no R2; sem logo, o ícone
+    if (!cam) return `<span class="logo-quadra">${ICONE_QUADRA}</span>`;
+    return `<span class="logo-quadra"><img src="${linkArquivo(`logos/${cam}.png`)}" alt="" onerror="this.parentNode.innerHTML=ICONE_QUADRA"></span>`;
   }
 
   function quadraSalva() { try { return JSON.parse(App.lerQuadra() || 'null'); } catch (e) { return null; } }
@@ -177,7 +185,7 @@
     quadras.forEach((q, i) => {
       let l = lista.find(x => x.nome === q.local);
       if (!l) { l = { nome: q.local, cidade: q.cidade, logo: '', itens: [] }; lista.push(l); }
-      if (!l.logo && q.logo) l.logo = q.logo;
+      if (!l.id && idCamera(q)) l.id = q.id;   // logo do local = logo (R2) da primeira câmera dele
       l.itens.push(i);
     });
     return lista;
@@ -255,8 +263,21 @@
     if (!dados.erro && !dados.error) cache[chave] = { quando: Date.now(), dados };
     return dados;
   }
-  const diasDaQuadra = q => consultarGuardado('dias:' + q.pasta, () => App.listarDias(q.pasta));
-  const videosDoDia = id => consultarGuardado('videos:' + id, () => App.listarVideos(id));
+  // R2: dia vira {id: "r2:<câmera>:<AAAA-MM-DD>", name: "AAAA-MM-DD"}; vídeo vira {id: "replays/...", name: "HH:MM:SS.mp4"}
+  const diasDaQuadra = q => consultarGuardado('dias:' + q.id, async () => {
+    const cam = idCamera(q);
+    if (!cam) return JSON.stringify({ dias: [] });
+    const r = await doWorker('/dias?quadra=' + cam);
+    if (!r.dias) return JSON.stringify(r);
+    return JSON.stringify({ dias: r.dias.map(d => ({ id: `r2:${cam}:${d}`, name: d })) });
+  });
+  const videosDoDia = id => consultarGuardado('videos:' + id, async () => {
+    const m = String(id).match(/^r2:([a-f0-9]{16}):(\d{4}-\d{2}-\d{2})$/);
+    if (!m) return JSON.stringify({ arquivos: [] });
+    const r = await doWorker(`/videos?quadra=${m[1]}&dia=${m[2]}`);
+    if (!r.arquivos) return JSON.stringify(r);
+    return JSON.stringify({ arquivos: r.arquivos.map(f => ({ id: f.chave, name: f.nome })) });
+  });
 
   // Hora do replay pelo nome do arquivo ("20:15:03.mp4") e a faixa de uma hora ("20:00 – 21:00")
   function horaDoArquivo(nome) { const m = nome.match(/(\d{2})[:\-_]\d{2}/); return m ? +m[1] : -1; }
@@ -322,7 +343,7 @@
       const arquivos = (dados.arquivos || []).filter(f => horaDoArquivo(f.name) === hora);
       const topo = cabecalhoQuadra(q) + `<div class="rotulo">${titulo} · ${arquivos.length} replay${arquivos.length === 1 ? '' : 's'}</div>`;
       document.getElementById('tela').innerHTML = topo + (!arquivos.length ? '<div class="msg">Nenhum replay neste horário.</div>' : arquivos.map(f => {
-        const src = `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&key=${encodeURIComponent(CHAVE)}`;
+        const src = linkArquivo(f.id);
         const poster = f.thumbnailLink ? `poster="${esc(f.thumbnailLink)}"` : '';
         const tituloVideo = `${dataPasta(nome)} às ${horaArquivo(f.name)}`;
         const nomeArquivo = `replay_${(nome.match(/\d{4}-\d{2}-\d{2}/) || ['replay'])[0]}_${f.name.replace(/:/g, '-')}`;
@@ -332,7 +353,7 @@
           <div class="acoes">
             <button class="btn vermelho" onclick='App.baixar(${esc(JSON.stringify(src))}, ${esc(JSON.stringify(nomeArquivo))})'>
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar</button>
-            <button class="btn branco" onclick='App.compartilhar(${esc(JSON.stringify("https://drive.google.com/file/d/" + f.id + "/view"))}, ${esc(JSON.stringify("Replay " + q.nome + " " + tituloVideo))})'>
+            <button class="btn branco" onclick='App.compartilhar(${esc(JSON.stringify(linkArquivo(f.id)))}, ${esc(JSON.stringify("Replay " + q.nome + " " + tituloVideo))})'>
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Compartilhar</button>
           </div>
           <div class="acoes recorte">
@@ -404,7 +425,7 @@
     if (!Recorte.suportado()) { etapa('Não deu certo'); dica('Este celular não grava vídeo pelo app. Atualize o navegador ou o Android System WebView.'); mostrar(); return; }
 
     // 1) baixa o replay uma vez só (serve para escolher o momento e para gerar)
-    Recorte.baixar(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(CHAVE)}`, barra, controle.signal)
+    Recorte.baixar(linkArquivo(id), barra, controle.signal)
       .then(b => {
         if (controle !== recorteAtual) return;
         blob = b;
@@ -502,9 +523,11 @@
   // confere com a lista da planilha, que é lida uma vez por abertura da tela, e guarda a versão nova.
   function quadraAtualizada(q) {
     return new Promise(pronto => carregarQuadras(() => {
-      const nova = (quadras || []).find(x => x.nome === q.nome && (x.local || x.nome) === (q.local || q.nome));
+      // pelo ID da câmera (o dono pode ter mudado o nome no painel); quadra antiga do Drive, sem ID: volta para a lista
+      const lista = quadras || [];
+      const nova = lista.find(x => idCamera(q) && x.id === q.id) || lista.find(x => x.nome === q.nome && (x.local || x.nome) === (q.local || q.nome));
       if (nova && JSON.stringify(nova) !== JSON.stringify(q)) { App.salvarQuadra(JSON.stringify(nova)); pronto(nova); }
-      else pronto(q);
+      else pronto(nova || (idCamera(q) ? q : null));
     }));
   }
 
@@ -516,6 +539,7 @@
     if (h.get('local')) { mostrarQuadrasDoLocal(h.get('local')); return; }
     if (location.hash === '#quadras' || !salva) { mostrarLocais(); return; }
     quadraAtualizada(salva).then(q => {
+      if (!q) { App.salvarQuadra(''); mostrarLocais(); return; }
       if (h.get('recorte')) mostrarRecorte(q, h.get('recorte'), h.get('f'), h.get('tv') || '', h.get('na') || 'replay');
       else if (location.hash === '#dias') mostrarListaDias(q);
       else if (h.get('dia') && h.get('hora') !== null) mostrarVideos(q, h.get('dia'), h.get('nome') || '', Number(h.get('hora')));

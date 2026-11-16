@@ -67,12 +67,12 @@
       else if (t.startsWith('esporte')) cEsporte = i;   // muda o recorte (zoom, tênis)
       else if (t.startsWith('rede')) cRede = i;
     });
-    if (cNome < 0 || cPasta < 0) throw new Error('Planilha sem as colunas Quadra e Link da pasta na linha 1.');
+    if (cNome < 0 || cId < 0) throw new Error('Planilha sem as colunas Quadra e ID da câmera na linha 1.');
     const cel = (l, c) => (c >= 0 && c < l.length ? l[c].trim() : '');
     return linhas.slice(1).map(l => {
       const nome = cel(l, cNome), pasta = idDaPasta(cel(l, cPasta)), local = cel(l, cLocal);
       return { id: cel(l, cId), nome, local: local || nome, cidade: cel(l, cCidade), pasta, logo: idDoArquivo(cel(l, cLogo)), gols: cel(l, cGols), esporte: cel(l, cEsporte), rede: cel(l, cRede) };
-    }).filter(q => q.nome && q.pasta);
+    }).filter(q => q.nome && q.id);   // 16/11/2026: só R2
   }
 
   // Quadras sem logo na planilha usam o logo.png que o dono enviou pelo painel (uma consulta para todas)
@@ -93,10 +93,10 @@
 
   async function listarQuadras() {
     try {
-      const r = await fetch('https://docs.google.com/spreadsheets/d/' + PLANILHA + '/gviz/tq?tqx=out:csv');
+      // 16/11/2026: lista da nuvem ReplayPro (ficha que cada câmera envia sozinha); a planilha do Google saiu
+      const r = await fetch('https://replaypro.replaypro.workers.dev/quadras', { cache: 'no-store' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const quadras = lerPlanilha(await r.text());
-      await completarLogos(quadras);
+      const quadras = (await r.json()).quadras || [];
       memoria.gravar('lista', JSON.stringify(quadras));
       return JSON.stringify({ quadras });
     } catch (e) {
