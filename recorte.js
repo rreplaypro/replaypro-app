@@ -15,7 +15,7 @@ const Recorte = (() => {
     tenis: { zoom: 1.3, gols: false, doisLados: true, rede: 0.27, nome: 'Tênis' },
   };
   const esporte = e => ESPORTES[String(e || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s.*/, '')] || ESPORTES.futebol;
-  const FORMATOS = { stories: { prop: [9, 16], saida: [720, 1280], nome: 'Stories' },
+  const FORMATOS = { stories: { prop: [9, 16], saida: [1080, 1920], nome: 'Stories' },
                      quadrado: { prop: [1, 1], saida: [1080, 1080], nome: 'Quadrado' } };
 
   // ---------- áudio: preparado no toque do botão (o iPhone só libera som depois de um toque) ----------
@@ -292,7 +292,7 @@ const Recorte = (() => {
     const ctx = tela.getContext('2d');
     ctx.imageSmoothingQuality = 'high';
     const desenhar = () => ctx.drawImage(video, z.x0 + posicao(c, video.currentTime), z.y0, c.largCrop, z.H, 0, 0, OW, OH);
-    const fluxo = tela.captureStream(30);
+    const fluxo = tela.captureStream(60);   // até 60: segue os ~56 fps da câmera (antes 30)
 
     // som: 1º jeito: decodifica o áudio do replay e toca junto só para dentro da gravação (o vídeo segue mudo);
     // 2º jeito, se o celular não abrir o áudio assim: pega o som do próprio vídeo (sem sair no alto-falante)
