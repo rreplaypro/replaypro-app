@@ -61,7 +61,7 @@
     </a>
     <details>
       <summary>Câmera na rede da quadra?</summary>
-      <div class="dica" style="margin: 6px 0 0">Celular no Wi-Fi da quadra: toque na sua câmera.</div>
+      <div class="dica" style="margin: 6px 0 0">Câmeras desta rede (celular no Wi-Fi da quadra). Toque para abrir.</div>
       <div class="cams" id="cams"><div class="dica">Carregando câmeras...</div></div>
       <div class="dica" style="margin: 10px 0 0">Não está na lista?</div>
       <div class="dica" style="margin: 6px 0 0">Digite o endereço que aparece no painel em Opções → Estatísticas → Rede. Vazio = Wi-Fi da câmera.</div>
@@ -126,13 +126,13 @@
   }
   atualizarLink();
 
-  // Câmeras da nuvem: nome + IP na rede da quadra (o navegador não consegue procurar na rede sozinho)
+  // Câmeras desta rede: a nuvem devolve só as que saem pela mesma internet que o celular (/aqui)
   (async () => {
     const el = document.getElementById('cams');
     const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
     try {
-      const r = await fetch('https://replaypro.replaypro.workers.dev/quadras', { cache: 'no-store' });
-      const qs = (await r.json()).quadras || [];
+      const r = await fetch('https://replaypro.replaypro.workers.dev/aqui', { cache: 'no-store' });
+      const qs = (await r.json()).cameras || [];
       let html = '';
       for (const q of qs) {
         for (const ip of String(q.ips || '').split(';')) {
@@ -140,7 +140,7 @@
           html += '<a href="http://' + ip + ':5000/">' + esc(q.local || q.nome || 'Câmera') + ' <span>' + ip + '</span></a>';
         }
       }
-      el.innerHTML = html || '<div class="dica">Nenhuma câmera na nuvem ainda.</div>';
+      el.innerHTML = html || '<div class="dica">Nenhuma câmera nesta rede. Conecte o celular ao Wi-Fi da quadra.</div>';
     } catch (e) {
       el.innerHTML = '<div class="dica">Sem internet para listar as câmeras.</div>';
     }
