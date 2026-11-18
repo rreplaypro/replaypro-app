@@ -7,6 +7,10 @@ const Recorte = (() => {
   const PESO_LONGE = 2, RAIO_GOL = 0.3, LANCE_MIN_S = 0.5, VELOCIDADE_ANALISE = 3;
   const ANTES_DO_GOL_S = 2.5, LARGURA_PICO = 0.2;   // trava no gol 2,5 s antes do momento marcado
   const DURACAO = 8, ANTES = 6;                      // o recorte tem 8 s: 6 antes do momento marcado e 2 depois
+  // 17/11/2026: o gol real vem depois do toque em "Foi gol aqui!" (nos testes do usuário, 1 a 3 s). O momento usado
+  // nas contas é o toque + este atraso
+  const ATRASO_MOMENTO_S = 1.3;
+  const ajustar = (momento, duracao) => momento == null ? null : Math.min(duracao, momento + ATRASO_MOMENTO_S);
   // Por esporte (escolhido no painel da câmera). zoom: fica só com o centro da imagem antes de recortar, como uma lente
   // mais fechada (1,3 ≈ 3,6 mm). doisLados: tênis, segue o jogador de perto e puxa para o do fundo (rede = divisão).
   const ESPORTES = {
@@ -259,7 +263,15 @@ const Recorte = (() => {
     if (lados) lados.length && trilhaDoisLados(lados, nCol, la, P).forEach((v, t) => { trilha[t] = v; });
     const pico = ondeEstaAJogada(colunas, nCol);
     const lance = momento != null ? golDoMomento(pico, tempos, gols, momento) : lanceNoGol(pico, tempos, gols, pt);
-    if (lance) { const alvo = Math.min(P - 1, Math.max(0, Math.round(lance[0] * nCol - la / 2))); for (let t = lance[1]; t < n; t++) trilha[t] = alvo; }
+    // 17/11/2026: a marca do gol é o LIMITE da lateral: o quadro nunca passa dela (gol na metade esquerda = borda esquerda
+    // do quadro; na direita = borda direita). No lance, o quadro vai até esse limite e fica encostado nele.
+    let pMin = 0, pMax = P - 1;
+    for (const g of gols) {
+      if (g < 0.5) pMin = Math.max(pMin, Math.round(g * nCol)); else pMax = Math.min(pMax, Math.round(g * nCol) - la);
+    }
+    if (pMin > pMax) { const m = Math.round((pMin + pMax) / 2); pMin = pMax = Math.min(P - 1, Math.max(0, m)); }
+    for (let t = 0; t < n; t++) trilha[t] = Math.min(pMax, Math.max(pMin, trilha[t]));
+    if (lance) { const alvo = lance[0] < 0.5 ? pMin : pMax; for (let t = lance[1]; t < n; t++) trilha[t] = alvo; }
     // suavização + limite de velocidade do fim para o começo (o quadro chega antes na jogada)
     const x = Array.from(trilha, v => v * W / nCol);
     const sigma = SUAVIDADE_S / pt, r = Math.floor(3 * sigma), g = []; let gs = 0;
@@ -267,7 +279,8 @@ const Recorte = (() => {
     const xs = x.map((_, i) => { let s = 0; for (let k = -r; k <= r; k++) s += g[k + r] * x[Math.min(n - 1, Math.max(0, i + k))]; return s / gs; });
     const vmax = VELOCIDADE_MAX * W * pt;
     for (let i = n - 2; i >= 0; i--) xs[i] = xs[i + 1] + Math.max(-vmax, Math.min(vmax, xs[i] - xs[i + 1]));
-    return { largCrop, tempos, xs: xs.map(v => Math.min(W - largCrop, Math.max(0, v))), lance };
+    const xMin = pMin * W / nCol, xMax = Math.min(W - largCrop, pMax * W / nCol);
+    return { largCrop, tempos, xs: xs.map(v => Math.min(xMax, Math.max(xMin, Math.min(W - largCrop, Math.max(0, v))))), lance };
   }
 
   function posicao(c, t) {   // posição suave em qualquer instante (sem degraus = sem tremida)
@@ -360,6 +373,7 @@ const Recorte = (() => {
   // ---------- tudo junto ----------
   // Trecho de 8 s em volta do momento marcado (6 s antes, 2 s depois); vídeo curto: ele inteiro
   function trecho(duracao, momento) {
+    momento = ajustar(momento, duracao);
     if (duracao <= DURACAO + 0.5 || momento == null) return [0, Math.min(duracao, momento == null ? duracao : DURACAO)];
     let inicio = Math.max(0, momento - ANTES);
     const fim = Math.min(duracao, inicio + DURACAO);
@@ -388,7 +402,7 @@ const Recorte = (() => {
       const dados = { W: z.W, H: z.H, tempos: bruto.tempos, nCol, colunas: bruto.colunas.map(corta),
                       lados: bruto.lados ? bruto.lados.map(([f, p]) => [corta(f), corta(p)]) : null };
       const golsZ = cfg.gols ? (gols || []).map(g => (g * VW - z.x0) / z.W).filter(g => g >= 0 && g <= 1) : [];
-      const c = caminho(dados, FORMATOS[formato].prop, golsZ, momento);
+      const c = caminho(dados, FORMATOS[formato].prop, golsZ, ajustar(momento, video.duration));
       aoEtapa('gravando', 0);
       const g = await gravar(video, blob, c, z, formato, tela, inicio, fim, f => aoEtapa('gravando', f), sinal);
       return { blob: g.blob, extensao: g.blob.type.includes('mp4') ? 'mp4' : 'webm', lance: !!c.lance, som: g.som, motivoSom: g.motivoSom };
