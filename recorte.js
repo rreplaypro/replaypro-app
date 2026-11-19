@@ -16,7 +16,10 @@ const Recorte = (() => {
   const ESPORTES = {
     futebol: { zoom: 1, gols: true, nome: 'Futebol' },
     beach: { zoom: 1.3, gols: false, nome: 'Beach tennis' },
-    tenis: { zoom: 1.3, gols: false, doisLados: true, rede: 0.27, nome: 'Tênis' },
+    // 18/11/2026 tênis: cima = quanto do corte do zoom sai de cima (0,5 = meio; 0,15 = quase tudo sai embaixo, do lado
+    // da câmera, para pegar o jogador inteiro na linha de base do fundo). terminaNoMomento: o toque é o FIM do lance
+    // e o recorte pega os 8 s anteriores (sem o atraso do gol).
+    tenis: { zoom: 1.3, gols: false, doisLados: true, rede: 0.27, cima: 0.15, terminaNoMomento: true, nome: 'Tênis' },
   };
   const esporte = e => ESPORTES[String(e || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s.*/, '')] || ESPORTES.futebol;
   const FORMATOS = { stories: { prop: [9, 16], saida: [1080, 1920], nome: 'Stories' },
@@ -371,8 +374,13 @@ const Recorte = (() => {
   }
 
   // ---------- tudo junto ----------
-  // Trecho de 8 s em volta do momento marcado (6 s antes, 2 s depois); vídeo curto: ele inteiro
-  function trecho(duracao, momento) {
+  // Trecho de 8 s em volta do momento marcado (6 s antes, 2 s depois); vídeo curto: ele inteiro.
+  // Tênis (terminaNoMomento): o momento é o fim; pega os 8 s anteriores.
+  function trecho(duracao, momento, nomeEsporte) {
+    if (esporte(nomeEsporte).terminaNoMomento && momento != null && duracao > DURACAO + 0.5) {
+      const fim = Math.min(duracao, Math.max(DURACAO, momento));
+      return [Math.max(0, fim - DURACAO), fim];
+    }
     momento = ajustar(momento, duracao);
     if (duracao <= DURACAO + 0.5 || momento == null) return [0, Math.min(duracao, momento == null ? duracao : DURACAO)];
     let inicio = Math.max(0, momento - ANTES);
@@ -390,11 +398,12 @@ const Recorte = (() => {
     let video = null;
     try {
       video = await abrirVideo(blob);
-      const [inicio, fim] = trecho(video.duration, momento);
+      const [inicio, fim] = trecho(video.duration, momento, nomeEsporte);
       // zoom: o pedaço do centro da imagem que vale (como uma lente mais fechada)
       const VW = video.videoWidth, VH = video.videoHeight;
       const z = { W: Math.round(VW / cfg.zoom / 2) * 2, H: Math.round(VH / cfg.zoom / 2) * 2 };
-      z.x0 = Math.floor((VW - z.W) / 4) * 2; z.y0 = Math.floor((VH - z.H) / 4) * 2;
+      z.x0 = Math.floor((VW - z.W) / 4) * 2;
+      z.y0 = Math.floor((VH - z.H) * (cfg.cima != null ? cfg.cima : 0.5) / 2) * 2;
       const divisao = cfg.doisLados ? (rede > 0 && rede < 1 ? rede : cfg.rede) : null;
       const bruto = await analisar(video, inicio, fim, [z.y0 / VH, (z.y0 + z.H) / VH], divisao, f => aoEtapa('analisando', f), sinal);
       const a0 = Math.round(z.x0 * LARGURA_ANALISE / VW), nCol = Math.round(z.W * LARGURA_ANALISE / VW);
@@ -402,7 +411,7 @@ const Recorte = (() => {
       const dados = { W: z.W, H: z.H, tempos: bruto.tempos, nCol, colunas: bruto.colunas.map(corta),
                       lados: bruto.lados ? bruto.lados.map(([f, p]) => [corta(f), corta(p)]) : null };
       const golsZ = cfg.gols ? (gols || []).map(g => (g * VW - z.x0) / z.W).filter(g => g >= 0 && g <= 1) : [];
-      const c = caminho(dados, FORMATOS[formato].prop, golsZ, ajustar(momento, video.duration));
+      const c = caminho(dados, FORMATOS[formato].prop, golsZ, cfg.terminaNoMomento ? momento : ajustar(momento, video.duration));
       aoEtapa('gravando', 0);
       const g = await gravar(video, blob, c, z, formato, tela, inicio, fim, f => aoEtapa('gravando', f), sinal);
       return { blob: g.blob, extensao: g.blob.type.includes('mp4') ? 'mp4' : 'webm', lance: !!c.lance, som: g.som, motivoSom: g.motivoSom };
